@@ -1,3 +1,49 @@
+/*#include <stdio.h>
+#include <stdlib.h>
+
+affichage2(int *tab,int lignes,int colonnes){
+int i,j,*z;
+ for(i=0;i<lignes;i++){
+   z=tab+i*colonnes;
+   printf("\n");
+      for(j=0;j<colonnes;j++){
+          printf("%d ",*(z+j));
+       }
+  }
+}
+
+void analyse(int *tab, int ligne, int col, int tailleC){
+
+    printf("\n Test = %d", *(tab+ligne*tailleC+col));
+
+
+
+}
+
+
+int main()
+{
+int lignes = 7;
+int colonnes = 5;
+
+int *tab;
+int i,j;
+tab = (int*)malloc(lignes*colonnes*sizeof(int));
+    for(i=0; i<lignes; i++){
+        for(j=0;j<colonnes;j++){
+        *(tab+i*colonnes + j) = 100*j+ i;
+        }
+    }
+
+affichage2(tab, 7,5);
+analyse(tab, 3,3, 5);
+
+    return EXIT_SUCCESS;
+}*/
+
+
+
+
 //TODO
 //Apprendre interface graphique C pour meilleur affichage? -> Apprendre SDL? OpenGL?
 //Possibilité d'importer un fichier texte avec une disposition déjà faite pour la voir évoluer?
@@ -9,9 +55,9 @@
 #define LIGNES 20
 #define CELLALIVE '@'
 #define CELLDEAD ' '
-#define WAITYESNO 1
+#define RECENTDEAD '*'
+#define WAITYESNO 0
 #define WAITTIME 0.5
-#define MUT_APO_YESNO 1
 //Utilisation dans le programme d'un tableau 1D de telle sorte que les valeurs soient ordonnées de la sorte sur la même ligne à la suite: (x1y1), (x2y1), ... , (x1y2), (x2y2) ...
 
 //Initialise le tableau avec des espaces:
@@ -49,6 +95,7 @@ int nombreVoisins(char *tab, int x, int y){
     return cpt;
 }
 
+
 //Transforme le tableau en tableau génération + 1 (utilisation de tableau temporaire pour d'abord calculer toutes les cellules):
 void tabGenPlusOne(char *tab){
     char *tabtemp;
@@ -59,7 +106,37 @@ void tabGenPlusOne(char *tab){
             n = nombreVoisins(tab, i, j);
             if(n==3) tabtemp[j*COLONNES + i] = CELLALIVE;
             else if(n==2) tabtemp[j*COLONNES + i] = tab[j*COLONNES + i]; //nécessaire de checker si la cellule reste identique ou pas? a voir plus tard
-            else tabtemp[j*COLONNES + i] = CELLDEAD;
+            else {
+                if (tab[j*COLONNES + i] == CELLALIVE){ // Permet d'afficher les cellules récemment mortes
+                    tabtemp[j*COLONNES + i]= RECENTDEAD;
+                    }
+                 else tabtemp[j*COLONNES + i] = CELLDEAD;
+                }
+        }
+    }
+    for(j=0;j<LIGNES;j++){
+        for(i=0;i<COLONNES;i++){
+            tab[j*COLONNES + i] = tabtemp[j*COLONNES + i];
+        }
+    }
+    free(tabtemp);
+}
+//Nouvelles règles
+void tabGenPlusTwo(char *tab){
+    char *tabtemp;
+    int i, j, n;
+    tabtemp = (char*)malloc(sizeof(char)*COLONNES*LIGNES);
+    for(j=0;j<LIGNES;j++){
+        for(i=0;i<COLONNES;i++){
+            n = nombreVoisins(tab, i, j);
+            if(n>7) tabtemp[j*COLONNES + i] = CELLDEAD;
+            else if(n==2) tabtemp[j*COLONNES + i] = CELLALIVE; //nécessaire de checker si la cellule reste identique ou pas? a voir plus tard
+            else {
+                if (tab[j*COLONNES + i] == CELLALIVE){
+                    tabtemp[j*COLONNES + i]= RECENTDEAD;
+                    }
+                 else tabtemp[j*COLONNES + i] = CELLDEAD;
+                }
         }
     }
     for(j=0;j<LIGNES;j++){
@@ -70,16 +147,6 @@ void tabGenPlusOne(char *tab){
     free(tabtemp);
 }
 
-//Transforme les cellules en CELLALIVE aléatoirement à un taux tauxmutation/100, en CELLDEAD aléatoirement à un taux tauxapoptose/100. L'apoptose l'emporte sur la mutation.
-void mutApo(char *tab, int tauxMutation, int tauxApoptose){
-    int i, j;
-    for(j=0;j<LIGNES;j++){
-        for(i=0;i<COLONNES;i++){
-            if(rand()%100+1 <= tauxMutation) tab[j * COLONNES + i] = CELLALIVE;
-            if(rand()%100+1 <= tauxApoptose) tab[j * COLONNES + i] = CELLDEAD;
-        }
-    }
-}
 
 //Fonction pour attendre un nombre de secondes données:
 void myWait(void){
@@ -88,44 +155,25 @@ void myWait(void){
     do time(&end); while(difftime(end, start) <= WAITTIME);
 }
 
-void showEvolution(char *tab){
-    int nbGen, i, apoptose = 0, mutation = 0, attente = 0;
+void showEvolution(char *tab, int ruleset){
+    int nbGen, i;
     do{
         printf("Entrez le nombre de générations souhaitées: ");
         scanf("%d", &nbGen);
-        if(nbGen < 0) printf("La possibilité de retour aux générations précédentes n'est pas encore disponible dans cette version.\n");
+        if(nbGen < 0) printf("La possibilité de retour aux générations précédentes n'est pas encore disponible dans cette version.\n"); //de toute façon c'est pas possible de retoruner en arrière mathématiquement
     }while(nbGen<0);
-    if(MUT_APO_YESNO == 1){
-        do{
-            printf("Entrez le taux de mutation M souhaité (chaque cellule a M chance sur 100 d'être en vie à la prochaine génération, indépendemment des règles de base): ");
-            scanf("%d", &mutation);
-            if(mutation < 0 || mutation >100) printf("Impossible. Entrez une valeur entre 0 et 100\n");
-        }while(mutation<0 || mutation >100);
-        do{
-            printf("Entrez le taux d'apoptose A souhaité (chaque cellule a A chance sur 100 d'être morte à la prochaine génération, indépendemment des règles de base et des mutations): ");
-            scanf("%d", &apoptose);
-            if(apoptose < 0 || apoptose >100) printf("Impossible. Entrez une valeur entre 0 et 100\n");
-        }while(apoptose<0 || apoptose >100);
-    }
-    if(WAITYESNO == 1){
-        do{
-            printf("Entrez 0 si vous ne souhaitez pas de temps d'attente entre les affichages des générations, 1 si vous en souhaitez un: ");
-            scanf("%d", &attente);
-            if(attente < 0 || attente > 1) printf("Impossible. Entrez une valeur entre 0 et 1\n");
-        }while(attente < 0 || attente > 1);
-    }
     printf("-----Gen 0-----\n");
     showTab(tab);
     for(i=0;i<nbGen;i++){
-        if(attente == 1) myWait();
+        if(WAITYESNO == 1) myWait();
         printf("-----Gen %d-----\n", i+1);
-        tabGenPlusOne(tab);
-        if(mutation > 0 || apoptose > 0) mutApo(tab, mutation, apoptose);
+        if (ruleset == 0) tabGenPlusOne(tab);
+        else tabGenPlusTwo(tab);
         showTab(tab);
     }
 }
 
-void userInput(char *tab){
+void userInput(char *tab, int ruleset){
     int x=-2, y=-2;
     printf("Entrez les coordonnées des cellules vivantes souhaitées. Entrez -1 pour l'axe des x lorsque vous avez terminé. Les coordonées valides vont de 0 à %d pour l'axe des x, de 0 à %d pour l'axe des y.\n", COLONNES-1, LIGNES-1);
     //L'utilisation du while est bancale, plus simple et rapide avec un do-while
@@ -148,10 +196,10 @@ void userInput(char *tab){
             printf("Cellule ajoutée.\n");
         }
     }
-    showEvolution(tab);
+    showEvolution(tab, ruleset);
 }
 
-void randomInput(char *tab){
+void randomInput(char *tab, int ruleset){
     int i, j;
     for(j=0;j<LIGNES;j++){
         for(i=0;i<COLONNES;i++){
@@ -159,38 +207,40 @@ void randomInput(char *tab){
             else tab[j * COLONNES + i] = CELLALIVE;
         }
     }
-    showEvolution(tab);
+    showEvolution(tab, ruleset);
 }
 
-void glider(char *tab){
+void glider(char *tab, int ruleset){
     tab[0*COLONNES +1] = '@';
     tab[1*COLONNES +2] = '@';
     tab[2*COLONNES +0] = '@';
     tab[2*COLONNES +1] = '@';
     tab[2*COLONNES +2] = '@';
-    showEvolution(tab);
+    showEvolution(tab, ruleset);
 }
 
 void menu(char *tab){
-    int a;
+    int a, ruleset;
     do{
         printf("Entrez 1 pour un arangement de cellules aléatoire, 2 pour entrer vos propres coordonnées de cellules, 3 pour le glider: ");
         scanf("%d", &a);
+        printf("Quelle règles de jeu désirez-vous ? 0 pour Conway (Classique) ou 1 pour Overpopulation \n Attention ! Le glider ne marche que en classique ! ");
+        scanf("%d", &ruleset);
     }while(a<1 || a>3);
-    if(a==1) randomInput(tab);
-    if(a==2) userInput(tab);
-    if(a==3) glider(tab);
+    if(a==1) randomInput(tab, ruleset);
+    if(a==2) userInput(tab, ruleset);
+    if(a==3) glider(tab, ruleset);
 }
 
 int main(){
     char *tab;
     srand((int)time(NULL));
-    tab = (char*)malloc(sizeof(char)*COLONNES*LIGNES); //Possible de passer cette ligne dans la fonction iniTab?
+    tab = (char*)malloc(sizeof(char)*COLONNES*LIGNES);
     iniTab(tab);
     //Ne pas toucher au dessus
-    
+
     menu(tab);
-    
+
     free(tab);
     return 0;
 }
