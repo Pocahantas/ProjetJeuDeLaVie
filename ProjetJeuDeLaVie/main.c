@@ -11,6 +11,7 @@
 #define CELLDEAD ' '
 #define WAITYESNO 1
 #define WAITTIME 0.5
+#define MUT_APO_YESNO 1
 //Utilisation dans le programme d'un tableau 1D de telle sorte que les valeurs soient ordonnées de la sorte sur la même ligne à la suite: (x1y1), (x2y1), ... , (x1y2), (x2y2) ...
 
 //Initialise le tableau avec des espaces:
@@ -69,6 +70,17 @@ void tabGenPlusOne(char *tab){
     free(tabtemp);
 }
 
+//Transforme les cellules en CELLALIVE aléatoirement à un taux tauxmutation/100, en CELLDEAD aléatoirement à un taux tauxapoptose/100. L'apoptose l'emporte sur la mutation.
+void mutApo(char *tab, int tauxMutation, int tauxApoptose){
+    int i, j;
+    for(j=0;j<LIGNES;j++){
+        for(i=0;i<COLONNES;i++){
+            if(rand()%100+1 <= tauxMutation) tab[j * COLONNES + i] = CELLALIVE;
+            if(rand()%100+1 <= tauxApoptose) tab[j * COLONNES + i] = CELLDEAD;
+        }
+    }
+}
+
 //Fonction pour attendre un nombre de secondes données:
 void myWait(void){
     time_t start, end;
@@ -77,18 +89,38 @@ void myWait(void){
 }
 
 void showEvolution(char *tab){
-    int nbGen, i;
+    int nbGen, i, apoptose = 0, mutation = 0, attente = 0;
     do{
         printf("Entrez le nombre de générations souhaitées: ");
         scanf("%d", &nbGen);
         if(nbGen < 0) printf("La possibilité de retour aux générations précédentes n'est pas encore disponible dans cette version.\n");
     }while(nbGen<0);
+    if(MUT_APO_YESNO == 1){
+        do{
+            printf("Entrez le taux de mutation M souhaité (chaque cellule a M chance sur 100 d'être en vie à la prochaine génération, indépendemment des règles de base): ");
+            scanf("%d", &mutation);
+            if(mutation < 0 || mutation >100) printf("Impossible. Entrez une valeur entre 0 et 100\n");
+        }while(mutation<0 || mutation >100);
+        do{
+            printf("Entrez le taux d'apoptose A souhaité (chaque cellule a A chance sur 100 d'être morte à la prochaine génération, indépendemment des règles de base et des mutations): ");
+            scanf("%d", &apoptose);
+            if(apoptose < 0 || apoptose >100) printf("Impossible. Entrez une valeur entre 0 et 100\n");
+        }while(apoptose<0 || apoptose >100);
+    }
+    if(WAITYESNO == 1){
+        do{
+            printf("Entrez 0 si vous ne souhaitez pas de temps d'attente entre les affichages des générations, 1 si vous en souhaitez un: ");
+            scanf("%d", &attente);
+            if(attente < 0 || attente > 1) printf("Impossible. Entrez une valeur entre 0 et 1\n");
+        }while(attente < 0 || attente > 1);
+    }
     printf("-----Gen 0-----\n");
     showTab(tab);
     for(i=0;i<nbGen;i++){
-        if(WAITYESNO == 1) myWait();
+        if(attente == 1) myWait();
         printf("-----Gen %d-----\n", i+1);
         tabGenPlusOne(tab);
+        if(mutation > 0 || apoptose > 0) mutApo(tab, mutation, apoptose);
         showTab(tab);
     }
 }
@@ -153,7 +185,7 @@ void menu(char *tab){
 int main(){
     char *tab;
     srand((int)time(NULL));
-    tab = (char*)malloc(sizeof(char)*COLONNES*LIGNES);
+    tab = (char*)malloc(sizeof(char)*COLONNES*LIGNES); //Possible de passer cette ligne dans la fonction iniTab?
     iniTab(tab);
     //Ne pas toucher au dessus
     
